@@ -1,26 +1,52 @@
-// Імпортуємо Express
 const express = require('express');
-const app = express();
+const cors = require('cors');
+const fs = require('fs');
+const path = require('path');
 
-// Вбудований middleware для парсингу JSON-запитів
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(cors());
 app.use(express.json());
 
-// Приклад базового маршруту
+// Головна сторінка
 app.get('/', (req, res) => {
-  res.send('Сервер працює успішно! 🚀');
+  res.send('✅ Головна сторінка працює');
 });
 
-// Тестовий POST-маршрут
-app.post('/data', (req, res) => {
-  const data = req.body;
-  console.log('Отримані дані:', data);
-  res.json({ message: 'Дані отримано!', отримано: data });
+// Статус сервера
+app.get('/status', (req, res) => {
+  res.json({ status: 'Сервер працює ✅', time: new Date().toISOString() });
 });
 
-// Використовуємо порт Render або 3000 для локального запуску
-const PORT = process.env.PORT || 3000;
+// Збереження підпису
+app.post('/api/saveSignature', (req, res) => {
+  const signatureData = req.body;
+
+  const fileName = `signature_${Date.now()}.json`;
+  const filePath = path.join(__dirname, fileName);
+
+  fs.writeFile(filePath, JSON.stringify(signatureData, null, 2), (err) => {
+    if (err) {
+      console.error('❌ Помилка при збереженні файлу:', err);
+      return res.status(500).json({ error: 'Помилка при збереженні' });
+    }
+    console.log('✅ Дані збережено у файл:', fileName);
+    res.json({ message: 'Дані збережено' });
+  });
+});
+
+// Отримати всі підписи
+app.get('/signatures', (req, res) => {
+  const files = fs.readdirSync(__dirname).filter(name => name.startsWith('signature_'));
+  const data = files.map(filename => {
+    const content = fs.readFileSync(path.join(__dirname, filename), 'utf-8');
+    return JSON.parse(content);
+  });
+  res.json(data);
+});
+
+// Запуск сервера
 app.listen(PORT, () => {
-  console.log(`Сервер запущено на порті ${PORT}`);
+  console.log(`🚀 Сервер запущено на порті ${PORT}`);
 });
-
-

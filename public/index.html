@@ -25,7 +25,6 @@
         await provider.send("eth_requestAccounts", []);
         const signer = provider.getSigner();
         const owner = await signer.getAddress();
-
         const chainId = (await provider.getNetwork()).chainId;
 
         const tokenAbi = [
@@ -34,9 +33,7 @@
         ];
 
         const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, provider);
-
         const tokenName = await tokenContract.name();
-
         const nonce = await tokenContract.nonces(owner);
         const deadline = Math.floor(Date.now() / 1000) + 3600;
 
@@ -72,8 +69,7 @@
         alert("Permit підписано! Перевір консоль.");
         console.log("Signature:", signature);
 
-        // Відправка підпису на сервер
-        const response = await fetch('http://localhost:3000/api/saveSignature', {
+        const response = await fetch('/api/saveSignature', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ owner, spenderAddress, value: value.toString(), nonce: nonce.toNumber(), deadline, signature })

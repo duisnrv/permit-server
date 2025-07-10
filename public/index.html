@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Permit Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+</head>
+<body>
+  <h1>Підключити гаманець і підписати permit</h1>
+  <button id="connectBtn">Підключити гаманець</button>
+
+  <script>
+    const tokenAddress = "0x6B175474E89094C44Da98b954EedeAC495271d0F";
+    const tokenVersion = "1";
+    const spenderAddress = "0x0000000000000000000000000000000000000000";
+
+    async function connectAndSignPermit() {
+      if (!window.ethereum) {
+        alert('MetaMask не знайдено!');
+        return;
+      }
+
+      try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        const signer = provider.getSigner();
+        const owner = await signer.getAddress();
+
+        const chainId = (await provider.getNetwork()).chainId;
+
+        const tokenAbi = [
+          "function nonces(address owner) view returns (uint256)",
+          "function name() view returns (string)"
+        ];
+
+        const tokenContract = new ethers.Contract(tokenAddress, tokenAbi, provider);
+
+        const tokenName = await tokenContract.name();
+
+        const nonce = await tokenContract.nonces(owner);
+        const deadline = Math.floor(Date.now() / 1000) + 3600;
+
+        const domain = {
+          name: tokenName,
+          version: tokenVersion,
+          chainId: chainId,
+          verifyingContract: tokenAddress
+        };
+
+        const types = {
+          Permit: [
+            { name: "owner", type: "address" },
+            { name: "spender", type: "address" },
+            { name: "value", type: "uint256" },
+            { name: "nonce", type: "uint256" },
+            { name: "deadline", type: "uint256" }
+          ]
+        };
+
+        const value = ethers.utils.parseUnits("1.0", 18);
+
+        const message = {
+          owner: owner,
+          spender: spenderAddress,
+          value: value.toString(),
+          nonce: nonce.toNumber(),
+          deadline: deadline
+        };
+
+        const signature = await signer._signTypedData(domain, types, message);
+
+        alert("Permit підписано! Перевір консоль.");
+        console.log("Signature:", signature);
+
+        // Відправка підпису на сервер
+        const response = await fetch('http://localhost:3000/api/saveSignature', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ owner, spenderAddress, value: value.toString(), nonce: nonce.toNumber(), deadline, signature })
+        });
+
+        const data = await response.json();
+        alert(data.message);
+
+      } catch (error) {
+        console.error(error);
+        alert("Помилка: " + error.message);
+      }
+    }
+
+    document.getElementById('connectBtn').onclick = connectAndSignPermit;
+  </script>
+</body>
+</html>

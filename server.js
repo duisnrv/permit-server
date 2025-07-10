@@ -1,31 +1,65 @@
 const express = require('express');
-const cors = require('cors');
+const bodyParser = require('body-parser');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(express.json());
+app.use(bodyParser.json());
+app.use(express.static('public'));
+
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <body>
+        <h2>Форма для підпису</h2>
+        <form id="signatureForm">
+          <input type="text" name="username" placeholder="Ваше ім'я" required />
+          <input type="text" name="signature" placeholder="Ваш підпис" required />
+          <button type="submit">Надіслати</button>
+        </form>
+        <div id="result"></div>
+        <script>
+          document.getElementById('signatureForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = e.target.username.value;
+            const signature = e.target.signature.value;
+            const res = await fetch('/api/saveSignature', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ username, signature })
+            });
+            const result = await res.json();
+            document.getElementById('result').innerText = result.message;
+          });
+        </script>
+      </body>
+    </html>
+  `);
+});
 
 app.post('/api/saveSignature', (req, res) => {
-  const signatureData = req.body;
+  const { username, signature } = req.body;
+  if (!username || !signature) {
+    return res.status(400).json({ message: 'Не всі дані заповнені' });
+  }
 
-  // Зберігаємо в файл (наприклад, з таймстампом)
-  const fileName = `signature_${Date.now()}.json`;
-  const filePath = path.join(__dirname, fileName);
+  const filePath = path.join(__dirname, 'signatures.json');
+  let data = [];
 
-  fs.writeFile(filePath, JSON.stringify(signatureData, null, 2), (err) => {
-    if (err) {
-      console.error('Помилка при збереженні файлу:', err);
-      return res.status(500).json({ error: 'Помилка при збереженні' });
-    }
-    console.log('Дані збережено у файл:', fileName);
-    res.json({ message: 'Дані збережено' });
-  });
+  if (fs.existsSync(filePath)) {
+    const raw = fs.readFileSync(filePath);
+    data = JSON.parse(raw);
+  }
+
+  data.push({ username, signature, timestamp: new Date().toISOString() });
+  fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+
+  res.json({ message: 'Підпис збережено успішно!' });
 });
 
 app.listen(PORT, () => {
   console.log(`Сервер запущено на порті ${PORT}`);
 });
+
